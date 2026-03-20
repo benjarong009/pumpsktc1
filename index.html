@@ -344,6 +344,40 @@ nav {
 @keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .sk-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;}
 
+/* DONATE */
+.donate-fab {
+  position:fixed;bottom:84px;right:16px;z-index:150;
+  background:linear-gradient(135deg,#f59e0b,#ef4444);
+  color:#fff;border:none;border-radius:50px;
+  font-family:'Sarabun',sans-serif;font-size:.82rem;font-weight:700;
+  padding:10px 16px;cursor:pointer;
+  box-shadow:0 4px 20px rgba(245,158,11,.4);
+  display:flex;align-items:center;gap:6px;
+  transition:all .25s;
+}
+.donate-fab:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(245,158,11,.5);}
+
+.donate-box {
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:16px;padding:20px;text-align:center;margin-bottom:8px;
+}
+.donate-bank {
+  font-size:1.1rem;font-weight:700;color:var(--accent2);margin-bottom:4px;
+}
+.donate-acct {
+  font-family:'Chakra Petch',sans-serif;font-size:1.6rem;font-weight:700;
+  color:#fff;letter-spacing:2px;margin:8px 0;
+}
+.donate-name {
+  font-size:.85rem;color:var(--text2);
+}
+.copy-btn {
+  margin-top:12px;padding:8px 20px;border-radius:8px;border:none;
+  background:var(--accent);color:#fff;font-family:'Sarabun',sans-serif;
+  font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s;
+}
+.copy-btn:hover{background:#2563eb;}
+
 /* NEAR PANEL CONTENT */
 .near-btn{
   width:calc(100% - 24px);margin:12px;
@@ -427,8 +461,29 @@ nav {
 <!-- FAB -->
 <button class="fab" onclick="reqLogin()" title="รายงานปั๊ม">+</button>
 
+<!-- DONATE FAB -->
+<button class="donate-fab" onclick="openModal('donateM')">💛 สนับสนุน</button>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- DONATE MODAL -->
+<div class="overlay" id="donateM" onclick="closeOuter(event,'donateM')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">💛 สนับสนุนผู้พัฒนา</div>
+    <p style="font-size:.85rem;color:var(--text2);margin-bottom:16px;line-height:1.6;">
+      ขอบคุณที่ใช้งาน PumpSKTC 🙏<br>หากเว็บนี้มีประโยชน์ สามารถสนับสนุนค่าเซิร์ฟเวอร์ได้ที่
+    </p>
+    <div class="donate-box">
+      <div class="donate-bank">🏦 ธนาคารไทยพาณิชย์ (SCB)</div>
+      <div class="donate-acct" id="acctNum">738-267-6977</div>
+      <div class="donate-name">เบญจรงค์ แสนมิ่ง</div>
+      <button class="copy-btn" onclick="copyAcct()">📋 คัดลอกเลขบัญชี</button>
+    </div>
+    <button class="sbtn sbtn-s" onclick="closeModal('donateM')">ปิด</button>
+  </div>
+</div>
 
 <!-- LOGIN MODAL -->
 <div class="overlay" id="loginM" onclick="closeOuter(event,'loginM')">
@@ -745,6 +800,11 @@ function findNear(){
 function openModal(id){document.getElementById(id).classList.add('show');}
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 function closeOuter(e,id){if(e.target.id===id)closeModal(id);}
+
+// COPY ACCOUNT
+function copyAcct(){
+  navigator.clipboard.writeText('7382676977').then(()=>toast('📋 คัดลอกเลขบัญชีแล้ว!')).catch(()=>toast('7382676977'));
+}
 
 // TOAST
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
