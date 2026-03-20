@@ -144,7 +144,9 @@ tr:hover td{background:var(--blue-light);}
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .3s;}
 .modal-overlay.show{opacity:1;pointer-events:all;}
-.modal{background:var(--card);border-radius:20px;padding:28px;width:100%;max-width:440px;transform:scale(.95);transition:transform .3s;}
+.act-btn.edit{color:var(--blue);}
+.act-btn.edit:hover{background:var(--blue-light);}
+.modal{background:var(--card);border-radius:20px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;transform:scale(.95);transition:transform .3s;}
 .modal-overlay.show .modal{transform:scale(1);}
 .modal-title{font-family:'IBM Plex Sans Thai',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:16px;color:var(--text);}
 
@@ -344,6 +346,62 @@ tr:hover td{background:var(--blue-light);}
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 <div class="toast" id="toast"></div>
 
+<!-- EDIT REPORT MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">✏️ แก้ไขรายงาน</div>
+    <input type="hidden" id="editId">
+    <div class="form-group">
+      <label class="form-label">ชื่อปั๊ม</label>
+      <input class="form-input" id="editStation" placeholder="ชื่อปั๊ม">
+    </div>
+    <div class="form-group">
+      <label class="form-label">แบรนด์</label>
+      <select class="form-select" id="editBrand">
+        <option>ปตท.</option><option>บางจาก</option><option>เชลล์</option>
+        <option>เอสโซ่</option><option>คาลเท็กซ์</option><option>ซัสโก้</option><option>อื่นๆ</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">สถานะ</label>
+      <select class="form-select" id="editStatus">
+        <option>มีน้ำมัน</option><option>ไม่มีน้ำมัน</option><option>คิวยาว</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">จังหวัด</label>
+      <select class="form-select" id="editProvince">
+        <option>สระแก้ว</option><option>ชลบุรี</option><option>กรุงเทพมหานคร</option>
+        <option>นนทบุรี</option><option>ปทุมธานี</option><option>อยุธยา</option>
+        <option>ระยอง</option><option>จันทบุรี</option><option>ตราด</option>
+        <option>ฉะเชิงเทรา</option><option>นครราชสีมา</option><option>อื่นๆ</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ประเภทน้ำมัน (คั่นด้วยจุลภาค)</label>
+      <input class="form-input" id="editFuelTypes" placeholder="เช่น ดีเซล, เบนซิน 91, E20">
+    </div>
+    <div style="display:flex;gap:12px">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">ละติจูด</label>
+        <input class="form-input" id="editLat" placeholder="เช่น 13.7063" type="number" step="any">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">ลองจิจูด</label>
+        <input class="form-input" id="editLng" placeholder="เช่น 102.5042" type="number" step="any">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">หมายเหตุ</label>
+      <textarea class="form-textarea" id="editComment" placeholder="หมายเหตุ..."></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-primary" onclick="saveEdit()">💾 บันทึก</button>
+      <button class="btn" style="background:var(--bg);color:var(--text2);border:1px solid var(--border)" onclick="closeEdit()">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONFIRM MODAL -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal">
@@ -497,7 +555,10 @@ function renderReportsTable(data){
       <td>${r.reported_by||'—'}</td>
       <td style="white-space:nowrap">${timeAgo(r.created_at)}</td>
       <td>👍 ${r.upvotes||0}</td>
-      <td><button class="act-btn del" onclick="deleteReport('${r.id}','${r.station.replace(/'/g,"\\'")}')">🗑️ ลบ</button></td>
+      <td>
+        <button class="act-btn edit" onclick="openEditModal(${JSON.stringify(r).replace(/</g,'&lt;')})">✏️ แก้ไข</button>
+        <button class="act-btn del" onclick="deleteReport('${r.id}','${r.station.replace(/'/g,"\\'")}')">🗑️ ลบ</button>
+      </td>
     </tr>`).join('');
 }
 function filterReports(q){
@@ -615,6 +676,49 @@ function confirmCleanup(){
   document.getElementById('confirmTitle').textContent='⚠️ ล้างข้อมูลเก่า?';
   document.getElementById('confirmMsg').textContent='ลบรายงานที่เก่ากว่า 7 วัน ไม่สามารถย้อนกลับได้';
   document.getElementById('confirmModal').classList.add('show');
+}
+
+// EDIT REPORT
+function openEditModal(r){
+  document.getElementById('editId').value       = r.id;
+  document.getElementById('editStation').value  = r.station||'';
+  document.getElementById('editBrand').value    = r.brand||'อื่นๆ';
+  document.getElementById('editStatus').value   = r.status||'มีน้ำมัน';
+  document.getElementById('editProvince').value = r.province||'สระแก้ว';
+  document.getElementById('editFuelTypes').value= (r.fuel_types||[]).join(', ');
+  document.getElementById('editLat').value      = r.lat||'';
+  document.getElementById('editLng').value      = r.lng||'';
+  document.getElementById('editComment').value  = r.comment||'';
+  document.getElementById('editModal').classList.add('show');
+}
+function closeEdit(){ document.getElementById('editModal').classList.remove('show'); }
+async function saveEdit(){
+  const id      = document.getElementById('editId').value;
+  const station = document.getElementById('editStation').value.trim();
+  const brand   = document.getElementById('editBrand').value;
+  const status  = document.getElementById('editStatus').value;
+  const province= document.getElementById('editProvince').value;
+  const fuelRaw = document.getElementById('editFuelTypes').value;
+  const fuel_types = fuelRaw ? fuelRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+  const lat     = document.getElementById('editLat').value;
+  const lng     = document.getElementById('editLng').value;
+  const comment = document.getElementById('editComment').value.trim();
+  if(!station) return toast('กรอกชื่อปั๊ม');
+  try{
+    const r=await fetch(`${API}/api/reports/${id}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','x-token':adminToken},
+      body:JSON.stringify({station,brand,status,fuel_types,province,lat:lat||null,lng:lng||null,comment})
+    });
+    const d=await r.json();
+    if(!r.ok) return toast(d.error||'แก้ไขไม่สำเร็จ');
+    // อัปเดตข้อมูล local
+    const idx=allReportsData.findIndex(x=>x.id===id);
+    if(idx!==-1) allReportsData[idx]=d;
+    renderReportsTable(allReportsData);
+    closeEdit();
+    toast('✅ แก้ไขรายงานแล้ว');
+  }catch{ toast('เกิดข้อผิดพลาด'); }
 }
 
 // CONFIRM MODAL
