@@ -378,6 +378,40 @@ nav {
 }
 .copy-btn:hover{background:#2563eb;}
 
+/* AUTOCOMPLETE */
+.ac-wrap{position:relative;}
+.ac-dropdown{
+  position:absolute;top:100%;left:0;right:0;z-index:600;
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:10px;margin-top:4px;
+  max-height:220px;overflow-y:auto;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  display:none;
+}
+.ac-dropdown.show{display:block;}
+.ac-item{
+  padding:10px 14px;cursor:pointer;
+  border-bottom:1px solid var(--border);
+  transition:background .15s;
+}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:hover,.ac-item.active{background:rgba(59,130,246,.15);}
+.ac-item-name{font-size:.88rem;font-weight:700;color:var(--text);}
+.ac-item-sub{font-size:.75rem;color:var(--text3);margin-top:2px;}
+.ac-item-badge{
+  display:inline-block;font-size:.68rem;font-weight:700;
+  padding:1px 7px;border-radius:50px;margin-left:6px;
+}
+.ac-badge-avail{background:rgba(34,212,107,.15);color:var(--green);}
+.ac-badge-unavail{background:rgba(255,77,106,.15);color:var(--red);}
+.ac-badge-queue{background:rgba(245,158,11,.15);color:var(--orange);}
+.ac-new{
+  padding:10px 14px;font-size:.84rem;color:var(--accent2);
+  cursor:pointer;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:6px;
+}
+.ac-new:hover{background:rgba(59,130,246,.1);}
+
 /* NEAR PANEL CONTENT */
 .near-btn{
   width:calc(100% - 24px);margin:12px;
@@ -518,7 +552,17 @@ nav {
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title">📝 รายงานสถานะปั๊ม</div>
-    <div class="fg"><label class="fl">ชื่อปั๊ม *</label><input class="fi" id="rpStation" placeholder="เช่น ปตท. สาขา..."></div>
+    <div class="fg">
+      <label class="fl">ชื่อปั๊ม *</label>
+      <div class="ac-wrap">
+        <input class="fi" id="rpStation" placeholder="พิมพ์ชื่อปั๊ม..." autocomplete="off"
+          oninput="acSearch(this.value)" onkeydown="acKey(event)" onfocus="acSearch(this.value)">
+        <div class="ac-dropdown" id="acDrop"></div>
+      </div>
+      <div id="acSelected" style="display:none;margin-top:6px;padding:8px 12px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:8px;font-size:.8rem;color:var(--accent2);">
+        ✅ เลือกปั๊มที่มีอยู่แล้ว — จะอัปเดตสถานะปั๊มนี้
+      </div>
+    </div>
     <div class="fg"><label class="fl">แบรนด์</label>
       <select class="fs" id="rpBrand">
         <option>ปตท.</option><option>บางจาก</option><option>เชลล์</option>
@@ -772,19 +816,36 @@ async function submitReport(){
   if(!station)return toast('กรอกชื่อปั๊ม');
   if(!selectedStatus)return toast('เลือกสถานะก่อน');
   try{
-    const r=await fetch(`${API}/api/reports`,{method:'POST',headers:{'Content-Type':'application/json','x-token':token},body:JSON.stringify({station,brand,status:selectedStatus,fuel_types,province,lat:selectedLat,lng:selectedLng,comment})});
-    const d=await r.json();
-    if(!r.ok)return toast(d.error||'ส่งไม่สำเร็จ');
-    closeModal('reportM');toast('✅ ส่งรายงานสำเร็จ! 🙏');
-    document.getElementById('rpStation').value='';document.getElementById('rpComment').value='';
+    let r, d;
+    if(selectedExistingId){
+      // อัปเดตสถานะปั๊มที่มีอยู่
+      r=await fetch(`${API}/api/reports/${selectedExistingId}`,{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json','x-token':token},
+        body:JSON.stringify({status:selectedStatus,fuel_types,comment})
+      });
+      d=await r.json();
+      if(!r.ok)return toast(d.error||'อัปเดตไม่สำเร็จ');
+      toast('✅ อัปเดตสถานะปั๊มแล้ว! 🙏');
+    } else {
+      // เพิ่มปั๊มใหม่
+      r=await fetch(`${API}/api/reports`,{method:'POST',headers:{'Content-Type':'application/json','x-token':token},body:JSON.stringify({station,brand,status:selectedStatus,fuel_types,province,lat:selectedLat,lng:selectedLng,comment})});
+      d=await r.json();
+      if(!r.ok)return toast(d.error||'ส่งไม่สำเร็จ');
+      toast('✅ เพิ่มปั๊มใหม่สำเร็จ! 🙏');
+    }
+    closeModal('reportM');
+    document.getElementById('rpStation').value='';
+    document.getElementById('rpComment').value='';
     document.querySelectorAll('.fcheck input').forEach(i=>i.checked=false);
-    document.querySelectorAll('.sc').forEach(c=>c.className='sc');selectedStatus='';
+    document.querySelectorAll('.sc').forEach(c=>c.className='sc');
+    selectedStatus='';selectedExistingId=null;
     selectedLat=null;selectedLng=null;
     const gpsBtn=document.getElementById('gpsBtn');
     gpsBtn.textContent='📍 ใช้ตำแหน่งปัจจุบัน';gpsBtn.style.color='';gpsBtn.style.borderColor='';
     document.getElementById('gpsStatus').style.display='none';
-    document.getElementById('rpLat').value='';
-    document.getElementById('rpLng').value='';
+    document.getElementById('rpLat').value='';document.getElementById('rpLng').value='';
+    document.getElementById('acSelected').style.display='none';
     await Promise.all([loadReports(),loadStats()]);
   }catch{toast('เกิดข้อผิดพลาด');}
 }
@@ -825,6 +886,69 @@ function closeOuter(e,id){if(e.target.id===id)closeModal(id);}
 
 let selectedLat=null;
 let selectedLng=null;
+let selectedExistingId=null; // id ของปั๊มที่เลือกจาก dropdown
+let acIndex=-1;
+
+// AUTOCOMPLETE
+function acSearch(val){
+  selectedExistingId=null;
+  document.getElementById('acSelected').style.display='none';
+  const drop=document.getElementById('acDrop');
+  const q=val.trim().toLowerCase();
+  if(!q){drop.classList.remove('show');return;}
+  const matches=allReports.filter(r=>
+    r.station.toLowerCase().includes(q)||
+    r.brand.toLowerCase().includes(q)
+  ).slice(0,8);
+  acIndex=-1;
+  let html='';
+  matches.forEach((r,i)=>{
+    const badgeClass=r.status==='มีน้ำมัน'?'ac-badge-avail':r.status==='ไม่มีน้ำมัน'?'ac-badge-unavail':'ac-badge-queue';
+    const icon=r.status==='มีน้ำมัน'?'✅':r.status==='ไม่มีน้ำมัน'?'❌':'⏳';
+    html+=`<div class="ac-item" data-id="${r.id}" data-name="${r.station}" data-brand="${r.brand}" data-province="${r.province}" data-lat="${r.lat||''}" data-lng="${r.lng||''}" onclick="acSelect(this)">
+      <div class="ac-item-name">${r.station}<span class="ac-item-badge ${badgeClass}">${icon} ${r.status}</span></div>
+      <div class="ac-item-sub">🏷️ ${r.brand} · 📍 ${r.province}</div>
+    </div>`;
+  });
+  html+=`<div class="ac-new" onclick="acAddNew()">➕ เพิ่มปั๊มใหม่ "${val.trim()}"</div>`;
+  drop.innerHTML=html;
+  drop.classList.add('show');
+}
+function acSelect(el){
+  const name=el.dataset.name;
+  const brand=el.dataset.brand;
+  const province=el.dataset.province;
+  const lat=el.dataset.lat;
+  const lng=el.dataset.lng;
+  selectedExistingId=el.dataset.id;
+  document.getElementById('rpStation').value=name;
+  document.getElementById('rpBrand').value=brand;
+  document.getElementById('rpProvince').value=province;
+  if(lat){document.getElementById('rpLat').value=lat;selectedLat=parseFloat(lat);}
+  if(lng){document.getElementById('rpLng').value=lng;selectedLng=parseFloat(lng);}
+  document.getElementById('acDrop').classList.remove('show');
+  document.getElementById('acSelected').style.display='block';
+}
+function acAddNew(){
+  selectedExistingId=null;
+  document.getElementById('acDrop').classList.remove('show');
+  document.getElementById('acSelected').style.display='none';
+}
+function acKey(e){
+  const items=document.querySelectorAll('#acDrop .ac-item');
+  if(!items.length) return;
+  if(e.key==='ArrowDown'){e.preventDefault();acIndex=Math.min(acIndex+1,items.length-1);acHighlight(items);}
+  else if(e.key==='ArrowUp'){e.preventDefault();acIndex=Math.max(acIndex-1,0);acHighlight(items);}
+  else if(e.key==='Enter'&&acIndex>=0){e.preventDefault();items[acIndex].click();}
+  else if(e.key==='Escape'){document.getElementById('acDrop').classList.remove('show');}
+}
+function acHighlight(items){
+  items.forEach((el,i)=>el.classList.toggle('active',i===acIndex));
+  if(acIndex>=0)items[acIndex].scrollIntoView({block:'nearest'});
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.ac-wrap'))document.getElementById('acDrop').classList.remove('show');
+});
 
 // GPS
 function getGPS(){
