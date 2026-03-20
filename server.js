@@ -146,20 +146,25 @@ app.patch('/api/reports/:id/upvote', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.patch('/api/reports/:id', adminMiddleware, async (req, res) => {
+app.patch('/api/reports/:id', authMiddleware, async (req, res) => {
   try {
+    const isAdmin = req.user.role === 'admin';
     const { station, brand, status, fuel_types, province, lat, lng, comment } = req.body;
     if (status && !['มีน้ำมัน', 'ไม่มีน้ำมัน', 'คิวยาว'].includes(status))
       return res.status(400).json({ error: 'สถานะไม่ถูกต้อง' });
     const update = {};
-    if (station  !== undefined) update.station    = station;
-    if (brand    !== undefined) update.brand      = brand;
+    // user ธรรมดา อัปเดตได้แค่ status, fuel_types, comment
     if (status   !== undefined) update.status     = status;
     if (fuel_types !== undefined) update.fuel_types = fuel_types;
-    if (province !== undefined) update.province   = province;
-    if (lat      !== undefined) update.lat        = lat === '' ? null : Number(lat);
-    if (lng      !== undefined) update.lng        = lng === '' ? null : Number(lng);
     if (comment  !== undefined) update.comment    = comment;
+    // admin อัปเดตได้ทุกฟิลด์
+    if (isAdmin) {
+      if (station  !== undefined) update.station    = station;
+      if (brand    !== undefined) update.brand      = brand;
+      if (province !== undefined) update.province   = province;
+      if (lat      !== undefined) update.lat        = lat === '' ? null : Number(lat);
+      if (lng      !== undefined) update.lng        = lng === '' ? null : Number(lng);
+    }
     const Report = require('mongoose').model('Report');
     const r = await Report.findOneAndUpdate({ id: req.params.id }, update, { new: true }).lean();
     if (!r) return res.status(404).json({ error: 'ไม่พบรายงาน' });
