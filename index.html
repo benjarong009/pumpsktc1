@@ -552,6 +552,22 @@ nav {
         <label class="fcheck"><input type="checkbox" value="NGV"> NGV</label>
       </div>
     </div>
+    <div class="fg"><label class="fl">ตำแหน่ง GPS (ไม่บังคับ)</label>
+      <button type="button" class="sbtn sbtn-s" id="gpsBtn" onclick="getGPS()" style="margin-top:0;display:flex;align-items:center;gap:6px;justify-content:center;">
+        📍 ใช้ตำแหน่งปัจจุบัน
+      </button>
+      <div id="gpsStatus" style="font-size:.75rem;color:var(--text3);margin-top:6px;display:none;"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <div style="flex:1">
+          <label class="fl">ละติจูด</label>
+          <input class="fi" id="rpLat" placeholder="เช่น 13.7063" type="number" step="any" oninput="manualCoord()">
+        </div>
+        <div style="flex:1">
+          <label class="fl">ลองจิจูด</label>
+          <input class="fi" id="rpLng" placeholder="เช่น 102.5042" type="number" step="any" oninput="manualCoord()">
+        </div>
+      </div>
+    </div>
     <div class="fg"><label class="fl">หมายเหตุ</label><textarea class="ft" id="rpComment" placeholder="เช่น คิวประมาณ 20 นาที..."></textarea></div>
     <button class="sbtn sbtn-p" onclick="submitReport()">📤 ส่งรายงาน</button>
     <button class="sbtn sbtn-s" onclick="closeModal('reportM')">ยกเลิก</button>
@@ -756,13 +772,19 @@ async function submitReport(){
   if(!station)return toast('กรอกชื่อปั๊ม');
   if(!selectedStatus)return toast('เลือกสถานะก่อน');
   try{
-    const r=await fetch(`${API}/api/reports`,{method:'POST',headers:{'Content-Type':'application/json','x-token':token},body:JSON.stringify({station,brand,status:selectedStatus,fuel_types,province,comment})});
+    const r=await fetch(`${API}/api/reports`,{method:'POST',headers:{'Content-Type':'application/json','x-token':token},body:JSON.stringify({station,brand,status:selectedStatus,fuel_types,province,lat:selectedLat,lng:selectedLng,comment})});
     const d=await r.json();
     if(!r.ok)return toast(d.error||'ส่งไม่สำเร็จ');
     closeModal('reportM');toast('✅ ส่งรายงานสำเร็จ! 🙏');
     document.getElementById('rpStation').value='';document.getElementById('rpComment').value='';
     document.querySelectorAll('.fcheck input').forEach(i=>i.checked=false);
     document.querySelectorAll('.sc').forEach(c=>c.className='sc');selectedStatus='';
+    selectedLat=null;selectedLng=null;
+    const gpsBtn=document.getElementById('gpsBtn');
+    gpsBtn.textContent='📍 ใช้ตำแหน่งปัจจุบัน';gpsBtn.style.color='';gpsBtn.style.borderColor='';
+    document.getElementById('gpsStatus').style.display='none';
+    document.getElementById('rpLat').value='';
+    document.getElementById('rpLng').value='';
     await Promise.all([loadReports(),loadStats()]);
   }catch{toast('เกิดข้อผิดพลาด');}
 }
@@ -800,6 +822,47 @@ function findNear(){
 function openModal(id){document.getElementById(id).classList.add('show');}
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 function closeOuter(e,id){if(e.target.id===id)closeModal(id);}
+
+let selectedLat=null;
+let selectedLng=null;
+
+// GPS
+function getGPS(){
+  const btn=document.getElementById('gpsBtn');
+  const status=document.getElementById('gpsStatus');
+  btn.textContent='⏳ กำลังหาตำแหน่ง...';
+  btn.disabled=true;
+  status.style.display='none';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      selectedLat=pos.coords.latitude;
+      selectedLng=pos.coords.longitude;
+      document.getElementById('rpLat').value=selectedLat.toFixed(6);
+      document.getElementById('rpLng').value=selectedLng.toFixed(6);
+      btn.textContent='✅ ได้ตำแหน่งแล้ว';
+      btn.style.color='var(--green)';
+      btn.style.borderColor='rgba(34,212,107,.4)';
+      status.style.display='block';
+      status.style.color='var(--green)';
+      status.textContent=`📍 ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`;
+      btn.disabled=false;
+    },
+    ()=>{
+      btn.textContent='📍 ใช้ตำแหน่งปัจจุบัน';
+      btn.disabled=false;
+      status.style.display='block';
+      status.style.color='var(--red)';
+      status.textContent='❌ ไม่สามารถเข้าถึง GPS ได้ กรุณาอนุญาตในเบราว์เซอร์';
+    },
+    {timeout:10000,enableHighAccuracy:true}
+  );
+}
+function manualCoord(){
+  const lat=parseFloat(document.getElementById('rpLat').value);
+  const lng=parseFloat(document.getElementById('rpLng').value);
+  selectedLat=isNaN(lat)?null:lat;
+  selectedLng=isNaN(lng)?null:lng;
+}
 
 // COPY ACCOUNT
 function copyAcct(){
