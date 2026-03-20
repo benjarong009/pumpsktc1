@@ -556,7 +556,7 @@ function renderReportsTable(data){
       <td style="white-space:nowrap">${timeAgo(r.created_at)}</td>
       <td>👍 ${r.upvotes||0}</td>
       <td>
-        <button class="act-btn edit" onclick="openEditModal(${JSON.stringify(r).replace(/</g,'&lt;')})">✏️ แก้ไข</button>
+        <button class="act-btn edit" onclick="openEditModal('${r.id}')">✏️ แก้ไข</button>
         <button class="act-btn del" onclick="deleteReport('${r.id}','${r.station.replace(/'/g,"\\'")}')">🗑️ ลบ</button>
       </td>
     </tr>`).join('');
@@ -679,7 +679,9 @@ function confirmCleanup(){
 }
 
 // EDIT REPORT
-function openEditModal(r){
+function openEditModal(id){
+  const r = allReportsData.find(x => x.id === id);
+  if(!r) return toast('ไม่พบรายงาน');
   document.getElementById('editId').value       = r.id;
   document.getElementById('editStation').value  = r.station||'';
   document.getElementById('editBrand').value    = r.brand||'อื่นๆ';
